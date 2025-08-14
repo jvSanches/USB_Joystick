@@ -33,6 +33,13 @@
   * @brief This is the list of modules to be used in the HAL driver
   */
 #define HAL_MODULE_ENABLED
+
+/* ########################## FLASH Size Optimization ###################### */
+/**
+  * @brief Optimize for minimum FLASH usage
+  */
+#define USE_HAL_PCD_REGISTER_CALLBACKS 0U  /* Disable callbacks to save FLASH */
+#define USE_USB_DOUBLE_BUFFER 0U           /* Disable double buffering */
   #define HAL_ADC_MODULE_ENABLED
 /*#define HAL_CRYP_MODULE_ENABLED   */
 /*#define HAL_CAN_MODULE_ENABLED   */
@@ -64,7 +71,7 @@
 #define HAL_EXTI_MODULE_ENABLED
 #define HAL_PWR_MODULE_ENABLED
 #define HAL_RCC_MODULE_ENABLED
-#define HAL_I2C_MODULE_ENABLED
+/*#define HAL_I2C_MODULE_ENABLED*/  /* Disabled - not used in SHIFTER_CONSOLE */
 
 /* ########################## HSE/HSI Values adaptation ##################### */
 /**

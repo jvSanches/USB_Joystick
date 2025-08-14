@@ -89,7 +89,12 @@ void Error_Handler(void);
 #define IN7_Pin GPIO_PIN_1
 #define IN7_GPIO_Port GPIOB
 /* USER CODE BEGIN Private defines */
-
+#define SERIAL_Pin IN10_Pin
+#define SERIAL_GPIO_Port IN10_GPIO_Port
+#define CLK_Pin IN0_Pin
+#define CLK_GPIO_Port IN0_GPIO_Port
+#define LATCH_Pin IN3_Pin
+#define LATCH_GPIO_Port IN3_GPIO_Port
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus

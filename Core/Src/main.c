@@ -33,7 +33,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define ADC_MA_SAMPLES 10
+#define ADC_MA_SAMPLES 4  /* Reduced from 10 to 4 for FLASH savings */
 
 
 /* USER CODE END PD */
@@ -68,62 +68,76 @@ static void MX_TIM14_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 uint32_t adc_data[3*ADC_MA_SAMPLES];
-#ifdef NO_USB
+#if defined(NO_USB) && !defined(SHIFTER_CONSOLE)
 uint16_t axes[3];
 #endif
 
 
 
+// Only define constants for the active device type
+#ifdef YOKE
 #define ROLL_MIN 3400
 #define ROLL_MAX 600
 #define PITCH_MIN 3450
 #define PITCH_MAX 650
 #define TILLER_MIN 1090
 #define TILLER_MAX 3650
+#endif
 
+#ifdef PEDALS
 #define RUDDER_MIN 1372
 #define RUDDER_MAX 2628
 #define L_BRAKE_MIN 2000
 #define L_BRAKE_MAX 1100
 #define R_BRAKE_MIN 1600
 #define R_BRAKE_MAX 800
+#endif
 
+#ifdef THROTTLE
 #define L_THR_MIN 1427
 #define L_THR_MAX 2200
 #define R_THR_MIN 2095
 #define R_THR_MAX 2932
+#endif
 
+#ifdef GA_THROTTLE
 #define GA_THR_MIN 890
 #define GA_THR_MAX 2260
+#endif
 
+#ifdef RACING_PEDALS
 #define THROTTLE_MIN 2875
 #define THROTTLE_MAX 1062
 #define BRAKE_MIN 250
 #define BRAKE_MAX 1000
 #define CLUTCH_MIN 2875
 #define CLUTCH_MAX 1062
-
-#ifndef SHIFTER_CONSOLE
-uint16_t button_pins[8] = {IN7_Pin, IN9_Pin, IN8_Pin, IN1_Pin, IN2_Pin, IN3_Pin ,IN0_Pin ,IN10_Pin};
-GPIO_TypeDef* button_ports[8] = {IN7_GPIO_Port, IN9_GPIO_Port, IN8_GPIO_Port, IN10_GPIO_Port,IN2_GPIO_Port, IN3_GPIO_Port, IN0_GPIO_Port, IN10_GPIO_Port};
-
-uint16_t getADC(uint8_t input){
-	uint32_t sum = 0;
-	for (uint8_t i = 0; i<ADC_MA_SAMPLES; i++){
-		sum += adc_data[3*i + input];
-	}
-	return sum/ADC_MA_SAMPLES;
-}
-uint8_t getButton(uint8_t index){
-	if (HAL_GPIO_ReadPin(button_ports[index], button_pins[index]) == 0){
-		return 1;
-	}else{
-		return 0;
-	}
-}
 #endif
 
-int32_t map (int32_t au32_IN, int32_t au32_INmin, int32_t au32_INmax, int32_t au32_OUTmin, int32_t au32_OUTmax)
+#ifdef SHIFTER_CONSOLE
+#define AX1_MIN 100
+#define AX1_MAX 4096
+#define AX2_MIN 100
+#define AX2_MAX 4096
+#endif
+
+#if !defined(SHIFTER_CONSOLE) && (defined(YOKE) || defined(THROTTLE) || defined(GA_THROTTLE))
+static const uint16_t button_pins[8] = {IN7_Pin, IN9_Pin, IN8_Pin, IN1_Pin, IN2_Pin, IN3_Pin ,IN0_Pin ,IN10_Pin};
+static GPIO_TypeDef* const button_ports[8] = {IN7_GPIO_Port, IN9_GPIO_Port, IN8_GPIO_Port, IN10_GPIO_Port,IN2_GPIO_Port, IN3_GPIO_Port, IN0_GPIO_Port, IN10_GPIO_Port};
+
+static inline uint8_t getButton(uint8_t index){
+	return (HAL_GPIO_ReadPin(button_ports[index], button_pins[index]) == 0) ? 1 : 0;
+}
+#endif
+static inline uint16_t getADC(uint8_t input){
+	uint32_t sum = 0;
+	for (uint8_t i = 0; i < ADC_MA_SAMPLES; i++){
+		sum += adc_data[3*i + input];
+	}
+	return sum / ADC_MA_SAMPLES;
+}
+
+static inline int32_t map (int32_t au32_IN, int32_t au32_INmin, int32_t au32_INmax, int32_t au32_OUTmin, int32_t au32_OUTmax)
 {
 	int32_t au32_OUT = ((((au32_IN - au32_INmin)*(au32_OUTmax - au32_OUTmin))/(au32_INmax - au32_INmin)) + au32_OUTmin);
 	if (au32_OUT > au32_OUTmax){
@@ -134,45 +148,39 @@ int32_t map (int32_t au32_IN, int32_t au32_INmin, int32_t au32_INmax, int32_t au
     return au32_OUT;
 }
 #ifdef SHIFTER_CONSOLE
-void DelayUS(uint32_t us) {
-//	HAL_Delay(1);
+static inline void DelayUS(uint32_t us) {
     uint32_t start = TIM14->CNT;
-    uint32_t duration = us * 16;
+    uint32_t duration = us << 4; // us * 16 using bit shift
     while (TIM14->CNT - start < duration);
 }
-uint64_t shift_register_read(void) {
+static uint64_t shift_register_read(void) {
 	uint64_t result = 0;
 
-//	uint8_t bit_list[40];
-	// Passo 2: Baixar PL para capturar entradas
+	// Latch inputs
 	HAL_GPIO_WritePin(LATCH_GPIO_Port, LATCH_Pin, GPIO_PIN_RESET);
 	DelayUS(10);
-
-	// Passo 3: Subir PL para iniciar leitura serial
 	HAL_GPIO_WritePin(LATCH_GPIO_Port, LATCH_Pin, GPIO_PIN_SET);
 	DelayUS(10);
 
-	// Passo 4: Ler 40 bits (5 shift registers)
+	// Read 40 bits (5 shift registers)
 	for (uint8_t bit = 0; bit < 40; bit++) {
-		// Lê bit atual no QH
-		uint8_t bitVal = HAL_GPIO_ReadPin(MISO2_GPIO_Port, MISO2_Pin) == GPIO_PIN_SET;
-
+		uint8_t bitVal = HAL_GPIO_ReadPin(SERIAL_GPIO_Port, SERIAL_Pin) == GPIO_PIN_SET;
 		result |= ((uint64_t)bitVal << bit);
-//		bit_list[bit] = bitVal;
-		// Pulso de clock
-		HAL_GPIO_WritePin(SCK_GPIO_Port, SCK_Pin, GPIO_PIN_SET);
+		
+		// Clock pulse
+		HAL_GPIO_WritePin(CLK_GPIO_Port, CLK_Pin, GPIO_PIN_SET);
 		DelayUS(10);
-		HAL_GPIO_WritePin(SCK_GPIO_Port, SCK_Pin, GPIO_PIN_RESET);
+		HAL_GPIO_WritePin(CLK_GPIO_Port, CLK_Pin, GPIO_PIN_RESET);
 		DelayUS(10);
 	}
-	    return result;
+	return result;
 }
 
 #define STABLE_THRESHOLD 5
 
-uint64_t last_value = 0;
-uint64_t stable_value = 0;
-uint8_t stable_count = 0;
+static uint64_t last_value = 0;
+static uint64_t stable_value = 0;
+static uint8_t stable_count = 0;
 
 uint64_t shift_register_read_filtered(void) {
     uint64_t current_value = shift_register_read();
@@ -191,8 +199,14 @@ uint64_t shift_register_read_filtered(void) {
     return stable_value;
 }
 
-uint8_t usb_buffer[10];
-int32_t encoder_count = 0;
+static int32_t encoder_count = 0;
+
+// Optimized bit mapping table for SHIFTER_CONSOLE
+static const uint8_t bit_map_0[] = {7, 4, 6, 0, 5, 1, 2, 14}; // bits for usb_buffer[0]
+static const uint8_t bit_map_1[] = {13, 10, 9, 12, 8}; // bits for usb_buffer[1] (excluding conditional bits)
+static const uint8_t bit_map_2[] = {11, 23, 22, 20, 21, 17, 16, 19}; // bits for usb_buffer[2]
+static const uint8_t bit_map_3[] = {18, 30, 31, 38, 39, 27, 26, 25}; // bits for usb_buffer[3]
+static const uint8_t bit_map_4[] = {24, 28, 29, 37, 36, 33, 32}; // bits for usb_buffer[4] (excluding encoder bit)
 #endif
 /* USER CODE END 0 */
 
@@ -231,18 +245,20 @@ int main(void)
   /* USER CODE BEGIN 2 */
 
   HAL_ADC_Start_DMA(&hadc, adc_data, 3*ADC_MA_SAMPLES);
-  uint32_t last_report_tick = 0;
   HAL_TIM_Base_Start(&htim14);
-
-
+  uint32_t last_report_tick = 0;
+#ifdef SHIFTER_CONSOLE
   uint8_t usb_buffer[10];
+  uint8_t last_enc_state = 0;
+  uint8_t encoder_inc = 0;
+  uint8_t encoder_dec = 0;
+#endif
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  DelayUS(10);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -250,7 +266,9 @@ int main(void)
 		  HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, ((HAL_GetTick()/40)%2));
 	  }
 	  HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, (HAL_GetTick()%2000)>1800);
-
+#ifdef SHIFTER_MODULE
+	  stable_value = shift_register_read_filtered();
+#endif
 	  if (HAL_GetTick() > last_report_tick + 10){
 #ifdef YOKE
 		  uint8_t usb_buffer[7];
@@ -337,7 +355,97 @@ int main(void)
 	#endif
 #endif
 #ifdef SHIFTER_CONSOLE
+//buttons
+		uint64_t shift_register_inputs = stable_value;
+		shift_register_inputs = ~shift_register_inputs;
+		usb_buffer[0] = 0;
+		usb_buffer[1] = 0;
+		usb_buffer[2] = 0;
+		usb_buffer[3] = 0;
+		usb_buffer[4] = 0;
+		usb_buffer[5] = 0;
 
+		uint8_t encoder_state = (shift_register_inputs >> 34) & 0x03;
+
+		switch (last_enc_state){
+		case 0:
+			if (encoder_state == 1){
+				encoder_count++;
+			}else if(encoder_state == 2){
+				encoder_count--;
+				}
+			break;
+		case 1:
+			if (encoder_state == 3){
+				encoder_count++;
+			}else if(encoder_state == 0){
+				encoder_count--;
+				}
+			break;
+		case 3:
+			if (encoder_state == 2){
+				encoder_count++;
+			}else if(encoder_state == 1){
+				encoder_count--;
+				}
+			break;
+		case 2:
+			if (encoder_state == 0){
+				encoder_count++;
+			}else if(encoder_state == 3){
+				encoder_count--;
+				}
+			break;
+		}
+		last_enc_state = encoder_state;
+		if (encoder_inc > 0){
+			encoder_inc--;
+		}
+		if (encoder_dec > 0){
+			encoder_dec--;
+		}
+		if (encoder_count > 4){
+			encoder_inc = 5;
+			encoder_count = 0;
+		}else if (encoder_count < -4){
+			encoder_dec = 5;
+			encoder_count = 0;
+		}
+
+		// Optimized bit mapping using lookup tables
+		if ((shift_register_inputs & (1ULL << 3)) == 0){
+			// Map bits for usb_buffer[0] using lookup table
+			for(uint8_t i = 0; i < 8; i++) {
+				usb_buffer[0] |= ((shift_register_inputs >> bit_map_0[i]) & 0x01) << i;
+			}
+			usb_buffer[1] |= ((shift_register_inputs >> 15) & 0x01) << 0;
+		}else{
+			usb_buffer[1] |= ((shift_register_inputs >> 6) & 0x01) << 1;
+			usb_buffer[1] |= ((shift_register_inputs >> 0) & 0x01) << 2;
+		}
+
+		// Map remaining bits for usb_buffer[1]
+		for(uint8_t i = 0; i < 5; i++) {
+			usb_buffer[1] |= ((shift_register_inputs >> bit_map_1[i]) & 0x01) << (i + 3);
+		}
+
+		// Map bits for usb_buffer[2-4] using lookup tables
+		for(uint8_t i = 0; i < 8; i++) {
+			usb_buffer[2] |= ((shift_register_inputs >> bit_map_2[i]) & 0x01) << i;
+			usb_buffer[3] |= ((shift_register_inputs >> bit_map_3[i]) & 0x01) << i;
+			if(i < 7) usb_buffer[4] |= ((shift_register_inputs >> bit_map_4[i]) & 0x01) << i;
+		}
+		usb_buffer[4] |= ((encoder_inc>0) & 0x01) << 7;
+
+		// usb_buffer[5]
+		usb_buffer[5] |= ((encoder_dec>0) & 0x01) << 0;
+  //analog axes
+		int16_t ax_value = map(getADC(0),AX1_MIN, AX1_MAX, -1000, 1000);
+		usb_buffer[6] = (ax_value) & 255;
+		usb_buffer[7] = (ax_value) >> 8;
+		ax_value = map(getADC(1),AX2_MIN, AX2_MAX, -1000, 1000);
+		usb_buffer[8] = (ax_value) & 255;
+		usb_buffer[9] = (ax_value) >> 8;
 
 	#ifndef NO_USB
 			  USBD_CUSTOM_HID_SendReport(&hUsbDeviceFS, usb_buffer, 6);
@@ -346,16 +454,12 @@ int main(void)
 
 			  last_report_tick = HAL_GetTick();
 	  }
-#ifdef NO_USB
-	for (uint8_t k = 0; k<3; k++){
+
+#if defined(NO_USB) && !defined(SHIFTER_CONSOLE)
+	for (uint8_t k = 0; k < 3; k++){
 		axes[k] = getADC(k);
 	}
 #endif
-
-
-
-
-
   }
   /* USER CODE END 3 */
 }
@@ -536,6 +640,12 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);
 
+#ifdef SHIFTER_CONSOLE
+  /*Configure GPIO pin Output Level for CLK and LATCH pins */
+  HAL_GPIO_WritePin(CLK_GPIO_Port, CLK_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(LATCH_GPIO_Port, LATCH_Pin, GPIO_PIN_RESET);
+#endif
+
   /*Configure GPIO pins : IN8_Pin IN7_Pin */
   GPIO_InitStruct.Pin = IN8_Pin|IN7_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
@@ -555,6 +665,26 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(LED_GPIO_Port, &GPIO_InitStruct);
 
+#ifdef SHIFTER_CONSOLE
+  /*Configure GPIO pins : CLK_Pin LATCH_pin as outputs */
+  GPIO_InitStruct.Pin = CLK_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(CLK_GPIO_Port, &GPIO_InitStruct);
+
+  GPIO_InitStruct.Pin = LATCH_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(LATCH_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : IN1_Pin IN10_Pin IN2_Pin (excluding CLK and LATCH) */
+  GPIO_InitStruct.Pin = IN1_Pin|IN10_Pin|IN2_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+#else
   /*Configure GPIO pins : IN0_Pin IN1_Pin IN10_Pin IN2_Pin
                            IN3_Pin */
   GPIO_InitStruct.Pin = IN0_Pin|IN1_Pin|IN10_Pin|IN2_Pin
@@ -562,79 +692,11 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+#endif
 
 }
 
 /* USER CODE BEGIN 4 */
-
-
-/*
-char YokeReportDescriptor[44] = {
-    0x05, 0x01,                    // USAGE_PAGE (Generic Desktop)
-    0x09, 0x05,                    // USAGE (Game Pad)
-    0xa1, 0x01,                    // COLLECTION (Application)
-    0xa1, 0x00,                    //   COLLECTION (Physical)
-    0x05, 0x09,                    //     USAGE_PAGE (Button)
-    0x19, 0x01,                    //     USAGE_MINIMUM (Button 1)
-    0x29, 0x08,                    //     USAGE_MAXIMUM (Button 8)
-    0x15, 0x00,                    //     LOGICAL_MINIMUM (0)
-    0x25, 0x01,                    //     LOGICAL_MAXIMUM (1)
-    0x95, 0x08,                    //     REPORT_COUNT (8)
-    0x75, 0x01,                    //     REPORT_SIZE (1)
-    0x81, 0x02,                    //     INPUT (Data,Var,Abs)
-    0x05, 0x01,                    //     USAGE_PAGE (Generic Desktop)
-    0x09, 0x30,                    //     USAGE (X)
-    0x09, 0x31,                    //     USAGE (Y)
-    0x16, 0x18, 0xfc,              //     LOGICAL_MINIMUM (-1000)
-    0x26, 0xe8, 0x03,              //     LOGICAL_MAXIMUM (1000)
-    0x75, 0x10,                    //     REPORT_SIZE (16)
-    0x95, 0x02,                    //     REPORT_COUNT (2)
-    0x81, 0x02,                    //     INPUT (Data,Var,Abs)
-    0xc0,                          //     END_COLLECTION
-    0xc0                           // END_COLLECTION
-};
-char PedalsReportDescriptor[30] = {
-    0x05, 0x01,                    // USAGE_PAGE (Generic Desktop)
-    0x09, 0x05,                    // USAGE (Game Pad)
-    0xa1, 0x01,                    // COLLECTION (Application)
-    0xa1, 0x00,                    //   COLLECTION (Physical)
-    0x05, 0x01,                    //     USAGE_PAGE (Generic Desktop)
-    0x09, 0x32,                    //     USAGE (Z)
-    0x09, 0x33,                    //     USAGE (Rx)
-    0x09, 0x34,                    //     USAGE (Ry)
-    0x16, 0x18, 0xfc,              //     LOGICAL_MINIMUM (-1000)
-    0x26, 0xe8, 0x03,              //     LOGICAL_MAXIMUM (1000)
-    0x75, 0x10,                    //     REPORT_SIZE (16)
-    0x95, 0x03,                    //     REPORT_COUNT (3)
-    0x81, 0x02,                    //     INPUT (Data,Var,Abs)
-    0xc0,                          //     END_COLLECTION
-    0xc0                           // END_COLLECTION
-};
-char ThrottleReportDescriptor[44] = {
-    0x05, 0x01,                    // USAGE_PAGE (Generic Desktop)
-    0x09, 0x05,                    // USAGE (Game Pad)
-    0xa1, 0x01,                    // COLLECTION (Application)
-    0xa1, 0x00,                    //   COLLECTION (Physical)
-    0x05, 0x09,                    //     USAGE_PAGE (Button)
-    0x19, 0x01,                    //     USAGE_MINIMUM (Button 1)
-    0x29, 0x08,                    //     USAGE_MAXIMUM (Button 8)
-    0x15, 0x00,                    //     LOGICAL_MINIMUM (0)
-    0x25, 0x01,                    //     LOGICAL_MAXIMUM (1)
-    0x95, 0x08,                    //     REPORT_COUNT (8)
-    0x75, 0x01,                    //     REPORT_SIZE (1)
-    0x81, 0x02,                    //     INPUT (Data,Var,Abs)
-    0x05, 0x01,                    //     USAGE_PAGE (Generic Desktop)
-    0x09, 0x33,                    //     USAGE (Rx)
-    0x09, 0x34,                    //     USAGE (Ry)
-    0x16, 0x18, 0xfc,              //     LOGICAL_MINIMUM (-1000)
-    0x26, 0xe8, 0x03,              //     LOGICAL_MAXIMUM (1000)
-    0x75, 0x10,                    //     REPORT_SIZE (16)
-    0x95, 0x02,                    //     REPORT_COUNT (2)
-    0x81, 0x02,                    //     INPUT (Data,Var,Abs)
-    0xc0,                          //     END_COLLECTION
-    0xc0                           // END_COLLECTION
-};
-*/
 
 
 /* USER CODE END 4 */
