@@ -89,8 +89,10 @@
 #ifdef RACING_PEDALS
 #define USBD_CUSTOM_HID_REPORT_DESC_SIZE     28
 #endif
+#ifdef SHIFTER_CONSOLE
 #define USBD_CUSTOM_HID_REPORT_DESC_SIZE     44
-/*---------- -----------*/
+#endif
+ /*---------- -----------*/
 #define CUSTOM_HID_FS_BINTERVAL     0x5
 
 /****************************************/

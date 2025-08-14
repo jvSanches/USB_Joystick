@@ -190,6 +190,29 @@ __ALIGN_BEGIN static uint8_t CUSTOM_HID_ReportDesc_FS[USBD_CUSTOM_HID_REPORT_DES
 	0x81, 0x02,                    //     INPUT (Data,Var,Abs)
 	0xc0,                          //     END_COLLECTION
 #endif
+#ifdef SHIFTER_CONSOLE
+	0x05, 0x01,                    // USAGE_PAGE (Generic Desktop)
+	0x09, 0x05,                    // USAGE (Game Pad)
+	0xa1, 0x01,                    // COLLECTION (Application)
+	0xa1, 0x00,                    //   COLLECTION (Physical)
+	0x05, 0x09,                    //     USAGE_PAGE (Button)
+	0x19, 0x01,                    //     USAGE_MINIMUM (Button 1)
+	0x29, 0x30,                    //     USAGE_MAXIMUM (Button 48)
+	0x15, 0x00,                    //     LOGICAL_MINIMUM (0)
+	0x25, 0x01,                    //     LOGICAL_MAXIMUM (1)
+	0x95, 0x30,                    //     REPORT_COUNT (48)
+	0x75, 0x01,                    //     REPORT_SIZE (1)
+	0x81, 0x02,                    //     INPUT (Data,Var,Abs)
+	0x05, 0x01,                    //     USAGE_PAGE (Generic Desktop)
+	0x09, 0x30,                    //     USAGE (X)
+	0x09, 0x31,                    //     USAGE (Y)
+	0x16, 0x18, 0xfc,              //     LOGICAL_MINIMUM (-1000)
+	0x26, 0xe8, 0x03,              //     LOGICAL_MAXIMUM (1000)
+	0x75, 0x10,                    //     REPORT_SIZE (16)
+	0x95, 0x02,                    //     REPORT_COUNT (2)
+	0x81, 0x02,                    //     INPUT (Data,Var,Abs)
+	0xc0,                          //     END_COLLECTION
+#endif
   /* USER CODE END 0 */
   0xC0    /*     END_COLLECTION	             */
 };

@@ -1,6 +1,0 @@
-../Core/Src/main.c:107:10:getADC	8	static
-../Core/Src/main.c:115:9:map	16	static
-../Core/Src/main.c:125:6:DelayUS	0	static
-../Core/Src/main.c:295:6:SystemClock_Config	104	static,ignoring_inline_asm
-../Core/Src/main.c:138:5:main	64	static,ignoring_inline_asm
-../Core/Src/main.c:574:6:Error_Handler	0	static,ignoring_inline_asm

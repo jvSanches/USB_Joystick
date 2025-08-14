@@ -63,6 +63,9 @@
   */
 
 
+
+
+/* USER CODE BEGIN PRIVATE_DEFINES */
 #ifdef YOKE
 #define USBD_VID     43981
 #define USBD_LANGID_STRING     1033
@@ -115,9 +118,6 @@
 #define USBD_PRODUCT_STRING_FS     "DIY Shifter Console"
 #define USBD_CONFIGURATION_STRING_FS     "Custom HID Config"
 #define USBD_INTERFACE_STRING_FS     "Custom HID Interface"
-
-/* USER CODE BEGIN PRIVATE_DEFINES */
-
 /* USER CODE END PRIVATE_DEFINES */
 
 /**

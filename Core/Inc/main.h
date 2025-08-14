@@ -38,6 +38,7 @@ extern "C" {
 //#define THROTTLE
 //#define GA_THROTTLE
 //#define RACING_PEDALS
+#define SHIFTER_CONSOLE
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/

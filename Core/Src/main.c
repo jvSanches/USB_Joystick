@@ -103,6 +103,9 @@ uint16_t axes[3];
 #define CLUTCH_MIN 2875
 #define CLUTCH_MAX 1062
 
+#ifndef SHIFTER_CONSOLE
+uint16_t button_pins[8] = {IN7_Pin, IN9_Pin, IN8_Pin, IN1_Pin, IN2_Pin, IN3_Pin ,IN0_Pin ,IN10_Pin};
+GPIO_TypeDef* button_ports[8] = {IN7_GPIO_Port, IN9_GPIO_Port, IN8_GPIO_Port, IN10_GPIO_Port,IN2_GPIO_Port, IN3_GPIO_Port, IN0_GPIO_Port, IN10_GPIO_Port};
 
 uint16_t getADC(uint8_t input){
 	uint32_t sum = 0;
@@ -111,6 +114,14 @@ uint16_t getADC(uint8_t input){
 	}
 	return sum/ADC_MA_SAMPLES;
 }
+uint8_t getButton(uint8_t index){
+	if (HAL_GPIO_ReadPin(button_ports[index], button_pins[index]) == 0){
+		return 1;
+	}else{
+		return 0;
+	}
+}
+#endif
 
 int32_t map (int32_t au32_IN, int32_t au32_INmin, int32_t au32_INmax, int32_t au32_OUTmin, int32_t au32_OUTmax)
 {
@@ -122,13 +133,67 @@ int32_t map (int32_t au32_IN, int32_t au32_INmin, int32_t au32_INmax, int32_t au
 	}
     return au32_OUT;
 }
+#ifdef SHIFTER_CONSOLE
 void DelayUS(uint32_t us) {
 //	HAL_Delay(1);
     uint32_t start = TIM14->CNT;
     uint32_t duration = us * 16;
     while (TIM14->CNT - start < duration);
 }
+uint64_t shift_register_read(void) {
+	uint64_t result = 0;
 
+//	uint8_t bit_list[40];
+	// Passo 2: Baixar PL para capturar entradas
+	HAL_GPIO_WritePin(LATCH_GPIO_Port, LATCH_Pin, GPIO_PIN_RESET);
+	DelayUS(10);
+
+	// Passo 3: Subir PL para iniciar leitura serial
+	HAL_GPIO_WritePin(LATCH_GPIO_Port, LATCH_Pin, GPIO_PIN_SET);
+	DelayUS(10);
+
+	// Passo 4: Ler 40 bits (5 shift registers)
+	for (uint8_t bit = 0; bit < 40; bit++) {
+		// Lê bit atual no QH
+		uint8_t bitVal = HAL_GPIO_ReadPin(MISO2_GPIO_Port, MISO2_Pin) == GPIO_PIN_SET;
+
+		result |= ((uint64_t)bitVal << bit);
+//		bit_list[bit] = bitVal;
+		// Pulso de clock
+		HAL_GPIO_WritePin(SCK_GPIO_Port, SCK_Pin, GPIO_PIN_SET);
+		DelayUS(10);
+		HAL_GPIO_WritePin(SCK_GPIO_Port, SCK_Pin, GPIO_PIN_RESET);
+		DelayUS(10);
+	}
+	    return result;
+}
+
+#define STABLE_THRESHOLD 5
+
+uint64_t last_value = 0;
+uint64_t stable_value = 0;
+uint8_t stable_count = 0;
+
+uint64_t shift_register_read_filtered(void) {
+    uint64_t current_value = shift_register_read();
+
+    if (current_value == last_value) {
+        stable_count++;
+    } else {
+        stable_count = 1;
+        last_value = current_value;
+    }
+
+    if (stable_count >= STABLE_THRESHOLD) {
+        stable_value = current_value;
+    }
+
+    return stable_value;
+}
+
+uint8_t usb_buffer[10];
+int32_t encoder_count = 0;
+#endif
 /* USER CODE END 0 */
 
 /**
@@ -271,7 +336,14 @@ int main(void)
 			  USBD_CUSTOM_HID_SendReport(&hUsbDeviceFS, usb_buffer, 6);
 	#endif
 #endif
+#ifdef SHIFTER_CONSOLE
+
+
+	#ifndef NO_USB
 			  USBD_CUSTOM_HID_SendReport(&hUsbDeviceFS, usb_buffer, 6);
+	#endif
+#endif
+
 			  last_report_tick = HAL_GetTick();
 	  }
 #ifdef NO_USB
