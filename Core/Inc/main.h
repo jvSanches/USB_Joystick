@@ -37,7 +37,7 @@ extern "C" {
 //#define PEDALS
 //#define THROTTLE
 //#define GA_THROTTLE
-#define RACING_PEDALS
+//#define RACING_PEDALS
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/

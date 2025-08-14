@@ -47,6 +47,8 @@
  ADC_HandleTypeDef hadc;
 DMA_HandleTypeDef hdma_adc;
 
+TIM_HandleTypeDef htim14;
+
 /* USER CODE BEGIN PV */
 #ifndef NO_USB
 extern USBD_HandleTypeDef hUsbDeviceFS;
@@ -58,7 +60,7 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_DMA_Init(void);
 static void MX_ADC_Init(void);
-
+static void MX_TIM14_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -101,8 +103,6 @@ uint16_t axes[3];
 #define CLUTCH_MIN 2875
 #define CLUTCH_MAX 1062
 
-uint16_t button_pins[8] = {IN7_Pin, IN9_Pin, IN8_Pin, IN1_Pin, IN2_Pin, IN3_Pin ,IN0_Pin ,IN10_Pin};
-GPIO_TypeDef* button_ports[8] = {IN7_GPIO_Port, IN9_GPIO_Port, IN8_GPIO_Port, IN10_GPIO_Port,IN2_GPIO_Port, IN3_GPIO_Port, IN0_GPIO_Port, IN10_GPIO_Port};
 
 uint16_t getADC(uint8_t input){
 	uint32_t sum = 0;
@@ -110,13 +110,6 @@ uint16_t getADC(uint8_t input){
 		sum += adc_data[3*i + input];
 	}
 	return sum/ADC_MA_SAMPLES;
-}
-uint8_t getButton(uint8_t index){
-	if (HAL_GPIO_ReadPin(button_ports[index], button_pins[index]) == 0){
-		return 1;
-	}else{
-		return 0;
-	}
 }
 
 int32_t map (int32_t au32_IN, int32_t au32_INmin, int32_t au32_INmax, int32_t au32_OUTmin, int32_t au32_OUTmax)
@@ -129,6 +122,13 @@ int32_t map (int32_t au32_IN, int32_t au32_INmin, int32_t au32_INmax, int32_t au
 	}
     return au32_OUT;
 }
+void DelayUS(uint32_t us) {
+//	HAL_Delay(1);
+    uint32_t start = TIM14->CNT;
+    uint32_t duration = us * 16;
+    while (TIM14->CNT - start < duration);
+}
+
 /* USER CODE END 0 */
 
 /**
@@ -161,26 +161,27 @@ int main(void)
   MX_GPIO_Init();
   MX_DMA_Init();
   MX_ADC_Init();
-#ifndef NO_USB
   MX_USB_DEVICE_Init();
-#endif
+  MX_TIM14_Init();
   /* USER CODE BEGIN 2 */
 
   HAL_ADC_Start_DMA(&hadc, adc_data, 3*ADC_MA_SAMPLES);
   uint32_t last_report_tick = 0;
+  HAL_TIM_Base_Start(&htim14);
 
 
-
+  uint8_t usb_buffer[10];
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+	  DelayUS(10);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	  if (HAL_GetTick() < 1000){
+	  if (HAL_GetTick() < 2000){
 		  HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, ((HAL_GetTick()/40)%2));
 	  }
 	  HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, (HAL_GetTick()%2000)>1800);
@@ -270,7 +271,8 @@ int main(void)
 			  USBD_CUSTOM_HID_SendReport(&hUsbDeviceFS, usb_buffer, 6);
 	#endif
 #endif
-		  last_report_tick = HAL_GetTick();
+			  USBD_CUSTOM_HID_SendReport(&hUsbDeviceFS, usb_buffer, 6);
+			  last_report_tick = HAL_GetTick();
 	  }
 #ifdef NO_USB
 	for (uint8_t k = 0; k<3; k++){
@@ -349,7 +351,7 @@ static void MX_ADC_Init(void)
   /** Configure the global features of the ADC (Clock, Resolution, Data Alignment and number of conversion)
   */
   hadc.Instance = ADC1;
-  hadc.Init.ClockPrescaler = ADC_CLOCK_ASYNC_DIV1; //ADC_CLOCK_SYNC_PCLK_DIV4;
+  hadc.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV4;
   hadc.Init.Resolution = ADC_RESOLUTION_12B;
   hadc.Init.DataAlign = ADC_DATAALIGN_RIGHT;
   hadc.Init.ScanConvMode = ADC_SCAN_DIRECTION_FORWARD;
@@ -371,7 +373,7 @@ static void MX_ADC_Init(void)
   */
   sConfig.Channel = ADC_CHANNEL_5;
   sConfig.Rank = ADC_RANK_CHANNEL_NUMBER;
-  sConfig.SamplingTime = ADC_SAMPLETIME_71CYCLES_5 ; //ADC_SAMPLETIME_239CYCLES_5;
+  sConfig.SamplingTime = ADC_SAMPLETIME_239CYCLES_5;
   if (HAL_ADC_ConfigChannel(&hadc, &sConfig) != HAL_OK)
   {
     Error_Handler();
@@ -395,6 +397,37 @@ static void MX_ADC_Init(void)
   /* USER CODE BEGIN ADC_Init 2 */
 
   /* USER CODE END ADC_Init 2 */
+
+}
+
+/**
+  * @brief TIM14 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM14_Init(void)
+{
+
+  /* USER CODE BEGIN TIM14_Init 0 */
+
+  /* USER CODE END TIM14_Init 0 */
+
+  /* USER CODE BEGIN TIM14_Init 1 */
+
+  /* USER CODE END TIM14_Init 1 */
+  htim14.Instance = TIM14;
+  htim14.Init.Prescaler = 2;
+  htim14.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim14.Init.Period = 65535;
+  htim14.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim14.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim14) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM14_Init 2 */
+
+  /* USER CODE END TIM14_Init 2 */
 
 }
 

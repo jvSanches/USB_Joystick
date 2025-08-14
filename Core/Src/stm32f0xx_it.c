@@ -158,7 +158,6 @@ void DMA1_Channel1_IRQHandler(void)
 /**
   * @brief This function handles USB global Interrupt / USB wake-up interrupt through EXTI line 18.
   */
-#ifndef NO_USB
 void USB_IRQHandler(void)
 {
   /* USER CODE BEGIN USB_IRQn 0 */
@@ -169,7 +168,7 @@ void USB_IRQHandler(void)
 
   /* USER CODE END USB_IRQn 1 */
 }
-#endif
+
 /* USER CODE BEGIN 1 */
 
 /* USER CODE END 1 */
