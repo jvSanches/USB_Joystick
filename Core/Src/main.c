@@ -33,7 +33,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define ADC_MA_SAMPLES 4  /* Reduced from 10 to 4 for FLASH savings */
+#define ADC_MA_SAMPLES 10  /* Reduced from 10 to 4 for FLASH savings */
 
 
 /* USER CODE END PD */
