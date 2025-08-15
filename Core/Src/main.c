@@ -202,11 +202,11 @@ uint64_t shift_register_read_filtered(void) {
 static int32_t encoder_count = 0;
 
 // Optimized bit mapping table for SHIFTER_CONSOLE
-static const uint8_t bit_map_0[] = {7, 4, 6, 0, 5, 1, 2, 14}; // bits for usb_buffer[0]
-static const uint8_t bit_map_1[] = {13, 10, 9, 12, 8}; // bits for usb_buffer[1] (excluding conditional bits)
-static const uint8_t bit_map_2[] = {11, 23, 22, 20, 21, 17, 16, 19}; // bits for usb_buffer[2]
-static const uint8_t bit_map_3[] = {18, 30, 31, 38, 39, 27, 26, 25}; // bits for usb_buffer[3]
-static const uint8_t bit_map_4[] = {24, 28, 29, 37, 36, 33, 32}; // bits for usb_buffer[4] (excluding encoder bit)
+//static const uint8_t bit_map_0[] = {7, 4, 6, 0, 5, 1, 2, 14}; // bits for usb_buffer[0]
+//static const uint8_t bit_map_1[] = {13, 10, 9, 12, 8}; // bits for usb_buffer[1] (excluding conditional bits)
+//static const uint8_t bit_map_2[] = {11, 23, 22, 20, 21, 17, 16, 19}; // bits for usb_buffer[2]
+//static const uint8_t bit_map_3[] = {18, 30, 31, 38, 39, 27, 26, 25}; // bits for usb_buffer[3]
+//static const uint8_t bit_map_4[] = {24, 28, 29, 37, 36, 33, 32}; // bits for usb_buffer[4] (excluding encoder bit)
 #endif
 /* USER CODE END 0 */
 
@@ -266,7 +266,7 @@ int main(void)
 		  HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, ((HAL_GetTick()/40)%2));
 	  }
 	  HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, (HAL_GetTick()%2000)>1800);
-#ifdef SHIFTER_MODULE
+#ifdef SHIFTER_CONSOLE
 	  stable_value = shift_register_read_filtered();
 #endif
 	  if (HAL_GetTick() > last_report_tick + 10){
@@ -412,33 +412,62 @@ int main(void)
 			encoder_count = 0;
 		}
 
-		// Optimized bit mapping using lookup tables
 		if ((shift_register_inputs & (1ULL << 3)) == 0){
-			// Map bits for usb_buffer[0] using lookup table
-			for(uint8_t i = 0; i < 8; i++) {
-				usb_buffer[0] |= ((shift_register_inputs >> bit_map_0[i]) & 0x01) << i;
-			}
-			usb_buffer[1] |= ((shift_register_inputs >> 15) & 0x01) << 0;
-		}else{
-			usb_buffer[1] |= ((shift_register_inputs >> 6) & 0x01) << 1;
-			usb_buffer[1] |= ((shift_register_inputs >> 0) & 0x01) << 2;
-		}
+					// usb_buffer[0]
+					usb_buffer[0] |= ((shift_register_inputs >> 7) & 0x01) << 0;
+					usb_buffer[0] |= ((shift_register_inputs >> 4) & 0x01) << 1;
+					usb_buffer[0] |= ((shift_register_inputs >> 6) & 0x01) << 2;
+					usb_buffer[0] |= ((shift_register_inputs >> 0) & 0x01) << 3;
+					usb_buffer[0] |= ((shift_register_inputs >> 5) & 0x01) << 4;
+					usb_buffer[0] |= ((shift_register_inputs >> 1) & 0x01) << 5;
+					usb_buffer[0] |= ((shift_register_inputs >> 2) & 0x01) << 6;
+					usb_buffer[0] |= ((shift_register_inputs >> 14) & 0x01) << 7;
+					// usb_buffer[1]
+					usb_buffer[1] |= ((shift_register_inputs >> 15) & 0x01) << 0;
 
-		// Map remaining bits for usb_buffer[1]
-		for(uint8_t i = 0; i < 5; i++) {
-			usb_buffer[1] |= ((shift_register_inputs >> bit_map_1[i]) & 0x01) << (i + 3);
-		}
+				}else{
+					usb_buffer[1] |= ((shift_register_inputs >> 6) & 0x01) << 1;
+					usb_buffer[1] |= ((shift_register_inputs >> 0) & 0x01) << 2;
+				}
 
-		// Map bits for usb_buffer[2-4] using lookup tables
-		for(uint8_t i = 0; i < 8; i++) {
-			usb_buffer[2] |= ((shift_register_inputs >> bit_map_2[i]) & 0x01) << i;
-			usb_buffer[3] |= ((shift_register_inputs >> bit_map_3[i]) & 0x01) << i;
-			if(i < 7) usb_buffer[4] |= ((shift_register_inputs >> bit_map_4[i]) & 0x01) << i;
-		}
-		usb_buffer[4] |= ((encoder_inc>0) & 0x01) << 7;
+				usb_buffer[1] |= ((shift_register_inputs >> 13) & 0x01) << 3;
+				usb_buffer[1] |= ((shift_register_inputs >> 10) & 0x01) << 4;
+				usb_buffer[1] |= ((shift_register_inputs >> 9) & 0x01) << 5;
+				usb_buffer[1] |= ((shift_register_inputs >> 12) & 0x01) << 6;
+				usb_buffer[1] |= ((shift_register_inputs >> 8) & 0x01) << 7;
 
-		// usb_buffer[5]
-		usb_buffer[5] |= ((encoder_dec>0) & 0x01) << 0;
+				// usb_buffer[2]
+				usb_buffer[2] |= ((shift_register_inputs >> 11) & 0x01) << 0;
+				usb_buffer[2] |= ((shift_register_inputs >> 23) & 0x01) << 1;
+				usb_buffer[2] |= ((shift_register_inputs >> 22) & 0x01) << 2;
+				usb_buffer[2] |= ((shift_register_inputs >> 20) & 0x01) << 3;
+				usb_buffer[2] |= ((shift_register_inputs >> 21) & 0x01) << 4;
+				usb_buffer[2] |= ((shift_register_inputs >> 17) & 0x01) << 5;
+				usb_buffer[2] |= ((shift_register_inputs >> 16) & 0x01) << 6;
+				usb_buffer[2] |= ((shift_register_inputs >> 19) & 0x01) << 7;
+
+				// usb_buffer[3]
+				usb_buffer[3] |= ((shift_register_inputs >> 18) & 0x01) << 0;
+				usb_buffer[3] |= ((shift_register_inputs >> 30) & 0x01) << 1;
+				usb_buffer[3] |= ((shift_register_inputs >> 31) & 0x01) << 2;
+				usb_buffer[3] |= ((shift_register_inputs >> 38) & 0x01) << 3;
+				usb_buffer[3] |= ((shift_register_inputs >> 39) & 0x01) << 4;
+				usb_buffer[3] |= ((shift_register_inputs >> 27) & 0x01) << 5;
+				usb_buffer[3] |= ((shift_register_inputs >> 26) & 0x01) << 6;
+				usb_buffer[3] |= ((shift_register_inputs >> 25) & 0x01) << 7;
+
+				// usb_buffer[4]
+				usb_buffer[4] |= ((shift_register_inputs >> 24) & 0x01) << 0;
+				usb_buffer[4] |= ((shift_register_inputs >> 28) & 0x01) << 1;
+				usb_buffer[4] |= ((shift_register_inputs >> 29) & 0x01) << 2;
+				usb_buffer[4] |= ((shift_register_inputs >> 37) & 0x01) << 3;
+				usb_buffer[4] |= ((shift_register_inputs >> 36) & 0x01) << 4;
+				usb_buffer[4] |= ((shift_register_inputs >> 33) & 0x01) << 5;
+				usb_buffer[4] |= ((shift_register_inputs >> 32) & 0x01) << 6;
+				usb_buffer[4] |= ((encoder_inc>0) & 0x01) << 7;
+
+				// usb_buffer[5]
+				usb_buffer[5] |= ((encoder_dec>0) & 0x01) << 0;
   //analog axes
 		int16_t ax_value = map(getADC(0),AX1_MIN, AX1_MAX, -1000, 1000);
 		usb_buffer[6] = (ax_value) & 255;
@@ -448,7 +477,7 @@ int main(void)
 		usb_buffer[9] = (ax_value) >> 8;
 
 	#ifndef NO_USB
-			  USBD_CUSTOM_HID_SendReport(&hUsbDeviceFS, usb_buffer, 6);
+			  USBD_CUSTOM_HID_SendReport(&hUsbDeviceFS, usb_buffer, 10);
 	#endif
 #endif
 

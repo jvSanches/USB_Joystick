@@ -1,7 +1,7 @@
 ../USB_DEVICE/App/usbd_desc.c:270:11:USBD_FS_DeviceDescriptor	0	static
 ../USB_DEVICE/App/usbd_desc.c:283:11:USBD_FS_LangIDStrDescriptor	0	static
-../USB_DEVICE/App/usbd_desc.c:409:13:IntToUnicode	16	static
-../USB_DEVICE/App/usbd_desc.c:328:11:USBD_FS_SerialStrDescriptor	8	static
+../USB_DEVICE/App/usbd_desc.c:409:13:IntToUnicode	12	static
+../USB_DEVICE/App/usbd_desc.c:328:11:USBD_FS_SerialStrDescriptor	16	static
 ../USB_DEVICE/App/usbd_desc.c:315:11:USBD_FS_ManufacturerStrDescriptor	8	static
 ../USB_DEVICE/App/usbd_desc.c:296:11:USBD_FS_ProductStrDescriptor	8	static
 ../USB_DEVICE/App/usbd_desc.c:348:11:USBD_FS_ConfigStrDescriptor	8	static

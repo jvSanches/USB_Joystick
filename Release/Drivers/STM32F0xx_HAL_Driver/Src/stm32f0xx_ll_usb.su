@@ -7,7 +7,7 @@
 ../Drivers/STM32F0xx_HAL_Driver/Src/stm32f0xx_ll_usb.c:315:19:USB_DeactivateEndpoint	0	static
 ../Drivers/STM32F0xx_HAL_Driver/Src/stm32f0xx_ll_usb.c:594:19:USB_EPSetStall	0	static
 ../Drivers/STM32F0xx_HAL_Driver/Src/stm32f0xx_ll_usb.c:614:19:USB_EPClearStall	0	static
-../Drivers/STM32F0xx_HAL_Driver/Src/stm32f0xx_ll_usb.c:646:19:USB_EPStopXfer	8	static
+../Drivers/STM32F0xx_HAL_Driver/Src/stm32f0xx_ll_usb.c:646:19:USB_EPStopXfer	0	static
 ../Drivers/STM32F0xx_HAL_Driver/Src/stm32f0xx_ll_usb.c:691:19:USB_StopDevice	0	static
 ../Drivers/STM32F0xx_HAL_Driver/Src/stm32f0xx_ll_usb.c:712:20:USB_SetDevAddress	0	static
 ../Drivers/STM32F0xx_HAL_Driver/Src/stm32f0xx_ll_usb.c:728:20:USB_DevConnect	0	static
